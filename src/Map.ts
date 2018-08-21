@@ -58,7 +58,7 @@ export default class Map {
   }
   add(obj: any) {
     this.nodes.push(obj)
-    if(obj.tag === 'G' && obj.w) this.observerList.push(obj)
+    obj.parent = this
   }
   remove(obj: any) {
     let i = this.nodes.indexOf(obj)
