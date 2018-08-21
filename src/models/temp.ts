@@ -45,9 +45,9 @@ export default class RectCoordinate extends vNode {
     this.data = data
     if(!data || data.length <= 1) return
     let _maxY = Math.max.apply(Math, this.data)
-    let _minY = Math.min.apply(Math, this.data)
+    let _minY = 0 // Math.min.apply(Math, this.data)
     this.maxY = _maxY + (_maxY - _minY) * .3
-    this.minY = _minY - (_maxY - _minY) * .3
+    this.minY = 0 // _minY - (_maxY - _minY) * .3
   }
   // 坐标映射
   coord(pointer: [number, number]) {
@@ -127,7 +127,7 @@ Painter.reg(tag, function(node: RectCoordinate) {
   let _data = data.map((item, index) => node.coord([index, item]))
   for(let i = 0; i < _data.length; i++) {
     let _l = new Line({
-      p1: [_data[i][0], 0],
+      p1: [_data[i][0], h],
       p2: _data[i] as [number, number]
     })
     g.add(_l)

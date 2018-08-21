@@ -16,12 +16,11 @@ export default class Line extends vNode {
   p1: [number, number]
   p2: [number, number]
   pm: [number, number]
-  c: string
+  c: string = '#f00'
   w: number = 1
   deg: number = 0
   constructor(obj:line) {
     super('LINE')
-    if(!obj.c) obj.c = '#ff0'
     if(!obj.w) obj.w = 1
     for(let x in obj) {
       this[x] = obj[x]
@@ -50,10 +49,10 @@ export default class Line extends vNode {
    * 平移
    * @param x x { number }
    * @param y y { number }
-    */
-   translate(x:number, y:number) {
-    this.matrix(1, 0, 0, 1, x, y)
-   }
+  */
+  translate(x:number, y:number) {
+  this.matrix(1, 0, 0, 1, x, y)
+  }
 }
 
 /* 注册绘制方法 */

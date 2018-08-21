@@ -30,7 +30,7 @@ Painter.reg('LINES', function(Lines){
   if(bezier) {
     this.moveTo(...pointers[0])
     for(let x = 1; x < pointers.length; x++) {
-      let dX = (pointers[x][0] - pointers[x-1][0]) * .75
+      let dX = (pointers[x][0] - pointers[x-1][0]) * .5
       this.bezierCurveTo(pointers[x-1][0] + dX, pointers[x-1][1], pointers[x][0] - dX, pointers[x][1], ...pointers[x])
     }
   } else {

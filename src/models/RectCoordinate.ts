@@ -131,8 +131,6 @@ Painter.reg(tag, function(node: RectCoordinate) {
     bezier: true,
     w: .5
   })
-  l_0.bezier = !l_0.bezier
   g.add(l_0)
-  console.log(g)
   Painter.draw(_self, 'G', g)  
 })
