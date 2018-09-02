@@ -33,8 +33,8 @@ export default class G extends vNode{
     this._c = obj.c || 'rgba(0, 0, 0, .1)'
     this.children = []
   }
-  add(vNode) {
-    this.children.push(vNode)
+  add(...args) {
+    this.children.push(...args)
   }
   remove(obj: any) {
     let i = this.children.indexOf(obj)

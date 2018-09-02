@@ -16,6 +16,7 @@ interface rect {
   minY?: number
   maxX?: number
   maxY?: number
+  showCoord?: [boolean, boolean]
   data: Array<number>
 }
 
@@ -31,6 +32,7 @@ export default class RectCoordinate extends vNode {
   children: Array<any>
   data: Array<any>
   c: string
+  showCoord: [boolean, boolean] = [true, true]
   readonly length: number = 241
   constructor(obj: rect) {
     super(tag)
@@ -65,7 +67,7 @@ export default class RectCoordinate extends vNode {
 }
 
 Painter.reg(tag, function(node: RectCoordinate) {
-  const {w, h, left, top, minX, minY, maxX, maxY, data, c} = node
+  const {w, h, left, top, minX, minY, maxX, maxY, data, c, showCoord} = node
   const _self = this
   let g = new G({
     left,
@@ -106,22 +108,24 @@ Painter.reg(tag, function(node: RectCoordinate) {
     }))
   }
   // 横坐标刻度
-  let g_h = new G()
-  let strs = ['9:30', '10:00', '10:30', '11:00', '11:30/13:00', '13:30', '14:00', "14:30", "15:00"]
-  for(let i = 0; i < strs.length; i ++) {
-    let _x = w / (strs.length - 1) * i 
-    let _y = h + 12
-    g_h.add(new Text({
-      text: strs[i],
-      left: _x,
-      top: _y,
-      textAlign: 'center',
-      c: '#ccc'
-    }))
+  if (showCoord[1]) {
+    let g_h = new G()
+    let strs = ['9:30', '10:00', '10:30', '11:00', '11:30/13:00', '13:30', '14:00', "14:30", "15:00"]
+    for(let i = 0; i < strs.length; i ++) {
+      let _x = w / (strs.length - 1) * i 
+      let _y = h + 12
+      g_h.add(new Text({
+        text: strs[i],
+        left: _x,
+        top: _y,
+        textAlign: 'center',
+        c: '#ccc'
+      }))
+    }
+    g.add(g_h)
   }
-  g.add(g_v)
-  g.add(g_h)
-  g.add(rc)
+
+  g.add(g_v, rc)
   // 绘制折线
   let perW = node.perW
   let _data = data.map((item, index) => node.coord([index, item]))

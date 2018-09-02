@@ -1,44 +1,22 @@
 import Map from 'src/Map'
-import PolyCoordinate from 'models/PolyCoordinate'
-import Rec from 'models/RectCoordinate'
-import G from 'models/G'
-import Line from 'models/Line'
-import Pentagram from 'models/Pentagram'
-import temp from 'models/temp'
+import Sharetime from 'models/Sharetime'
+import Bar from 'models/Bar'
 
-/* 测试 */
-let m = new Map('app', 2)
-let g = new G()
+let m = new Map('app')
 
-let rc_1 = new Rec({
-  left: 100,
-  top: 100,
-  w: m.w - 150,
-  h: 400,  
-  data: []
+let data = []
+let _p = 28.05
+for(let i = 0; i< 241; i++) {
+  const _r = Math.random()
+  let _v = Math.round(_r * 300 * ((Math.random() < .5) ? 1 : -1)) * 100
+  data.push([_p += ((_r - .5)), _v])
+}
+
+let t = new Sharetime({
+  data,
+  w: m.w,
+  h: m.h
 })
 
-let start = 2800
-let data_1 = Array.apply(null, {length: 241}).map(item => {
-  return start += Math.random() * (start * .003) - start * .0015
-})
-
-let _data = Array.apply(null, {length: 241}).map(item => {
-  return Math.random() * 500 + 500
-})
-
-rc_1.update(data_1)
-
-let t_1 = new temp({
-  left: 100,
-  top: 500,  
-  w: m.w - 150,
-  h: 200,
-  data: _data
-})
-
-g.add(rc_1)
-g.add(t_1)
-
-m.add(g)
+m.add(t)
 m.render()
