@@ -42,7 +42,7 @@ export default class Map {
     this.nodes = []
     this.observerList = []
     this.mouse = {}
-    this.el.addEventListener('mousemove', () => { this.handleMousemove(event) })
+    // this.el.addEventListener('mousemove', () => { this.handleMousemove(event) })
   }
   render(clear: boolean = true) {
     const { nodes, C, w, h, view } = this
