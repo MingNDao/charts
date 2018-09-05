@@ -1,53 +1,75 @@
-import Map from 'src/Map'
-import G from 'models/G'
-import Scene from 'models/temp'
-import shuffle from 'src/util/shuffle'
+import Map from 'src/map'
+import G from 'src/models/G';
+import Line from 'src/models/Line';
 
-let m = new Map('app')
+function getTextPoints(txt):Array<[number, number]> {
+  const gap = 13
+  const M = document.createElement('canvas')
+  document.getElementById('app').appendChild(M)
+  const C = M.getContext('2d')
+  M.height = 120
+  M.width = 120 * 3 // C.measureText(txt).width + 20
+  C.font="120px 宋体 bold"
+  C.fillStyle = '#fff'  
+  console.log( C.measureText(txt).width)
+  C.textAlign = "left"
+  C.textBaseline = "middle"
+  C.fillText(txt, 0, M.height / 2)
+  let _d = C.getImageData(0, 0, M.width, M.height)
+  const points = []
 
-function start() {
-  console.log('重新开始')
- 
-  let s = new Scene({
-    w: 19,
-    h: 19,
-    size: m.h
-  })
-  // 随机生命体单元
-  // const _dirs = [[1, 0], [0, 1], [-1, 0], [0, -1], [1, -1], [1, 1], [-1, 1], [-1, -1]]
-  const cr_number = 6
-  s.lives = [
-    [9, 8],
-    [10, 8],
-    [9, 9],
-    [8, 9],
-    [9, 10]
-  ]
-  s.w += 50
-  s.h += 50
-  while(s.lives.length < cr_number) {
-    let x = Math.round(Math.random() * 2 - 1) + 9
-    let y = Math.round(Math.random() * 2 - 1) + 9
-    if(s.data[s.coord([x, y])]) continue
-    s.lives = [...s.lives].concat([[x, y]])
+  for(let i = 0; i < _d.data.length; i += (4 * gap)) {
+    _d.data[i] === 255 && points.push(getCoord(i, M.width))
   }
-
-  m.add(s)
-  let times = 0
-  let max = 0
-  let t = setInterval(function() {
-    if(times > 4000) return clearInterval(t)
-    else if(s.lives.length === 0) {
-      clearInterval(t)
-      start()
-    }
-    times++
-    s.step()
-    s.lives.length > max && (max = s.lives.length)
-    // console.log(times ++, max, s.lives.length)  
-    m.render()
-  }, 1000 / 24)
-  m.render()
+  document.getElementById('app').removeChild(M)
+  function getCoord(i, w) {
+    i /= 4
+    let _y = Math.floor(i / w)
+    let _x = i - (_y * w)
+    return [_x, _y]
+  }
+  return points
 }
 
-start()
+function getDistance(p1, p2) {
+  return Math.sqrt(Math.pow(p1[0] - p2[0], 2) + Math.pow(p1[1] - p2[1], 2))
+}
+const TXT = '2018'
+let points: Array<[number, number]> = getTextPoints(TXT).map(item => {
+  const temp:[number, number] = [
+    item[0] * 2.5,
+    item[1] * 2.5
+  ]
+  return temp
+})
+let m = new Map('app')
+
+let i = 0
+const t = setInterval(function() {
+  if(i >= points.length - 1) clearInterval(t)
+  for(let j = 0, _l = points.length; j < _l; j++) {
+    const distance = getDistance(points[i], points[j])
+    if (Math.abs(points[i][0] - points[j][0]) > 17 || Math.abs(points[i][1] - points[j][1]) > 17 || points[i][0] === points[j][0] && points[i][1] === points[j][1] || distance > 17) continue
+    const p1 =  points[i].map(item => { return item * 2.5})
+    m.add(new Line({
+      p1: points[i],
+      p2: points[j],
+      w: .5
+    }))
+  }
+  m.render()
+  i ++
+}, 1000 / 24)
+
+for(let i = 0; i< points.length; i++) {
+  m.add(new G({
+    left: points[i][0],
+    top: points[i][1],
+    w: 1,
+    h: 1,
+    c: '#ff0',
+    fill: true
+  }))  
+}
+
+m.render()
