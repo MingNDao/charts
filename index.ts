@@ -34,13 +34,13 @@ let l_4 = new Line({
 g_0.add(l_1, l_2, l_3, l_4)
 
 
-for(let i = 0; i < 9; i++) {
-  const perW = m.w / 3
-  const perH = m.h / 3
-  const margin = 30
+for(let i = 0; i < 100; i++) {
+  const perW = m.w / Math.sqrt(100)
+  const perH = m.h / Math.sqrt(100)
+  const margin = Math.sqrt(100) / 2
   let g_1 = new G({
-    left: i % 3 * perW + margin,
-    top: Math.floor(i / 3) * perH + margin,
+    left: i % Math.sqrt(100) * perW + margin,
+    top: Math.floor(i / Math.sqrt(100)) * perH + margin,
     w: perW - margin * 2,
     h: perH - margin * 2,
     fill: true,
