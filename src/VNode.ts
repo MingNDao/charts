@@ -5,7 +5,7 @@ export default class vNode {
   tag: string
   id: string
   name: string
-  parent: Map | G
+  parent: any
   constructor(tag: string) {
     this.tag = tag
   }

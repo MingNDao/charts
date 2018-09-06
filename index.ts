@@ -1,86 +1,79 @@
 import Map from 'src/map'
 import G from 'src/models/G';
 import Line from 'src/models/Line';
+import Lines from 'src/models/Lines';
 
-function getTextPoints(txt):Array<[number, number]> {
-  const gap = 14
-  const M = document.createElement('canvas')
-  document.getElementById('app').appendChild(M)
-  const C = M.getContext('2d')
-  M.height = 120
-  M.width = 120 * 4 // C.measureText(txt).width + 20
-  C.font="120px 黑体 bold"
-  C.fillStyle = '#fff'  
-  console.log( C.measureText(txt).width)
-  C.textAlign = "left"
-  C.textBaseline = "middle"
-  C.fillText(txt, 0, M.height / 2)
-  let _d = C.getImageData(0, 0, M.width, M.height)
-  const points = []
-
-  for(let i = 0; i < _d.data.length; i += (4 * gap)) {
-    _d.data[i] === 255 && points.push(getCoord(i, M.width))
-  }
-  document.getElementById('app').removeChild(M)
-  function getCoord(i, w) {
-    i /= 4
-    let _y = Math.floor(i / w)
-    let _x = i - (_y * w)
-    return [_x, _y]
-  }
-  return points
-}
-
-function getDistance(p1, p2) {
-  return Math.sqrt(Math.pow(p1[0] - p2[0], 2) + Math.pow(p1[1] - p2[1], 2))
-}
-const TXT = '诺兹多姆'
-let points: Array<[number, number]> = getTextPoints(TXT).map(item => {
-  const temp:[number, number] = [
-    item[0] * 1.5,
-    item[1] * 1.5
-  ]
-  return temp
-})
 let m = new Map('app')
-const g_1 = new G({
-  left: 100,
-  top: 100
+
+let g_0 = new G()
+let g_1 = new G({
+  stroke: true,
+  c: 'rgba(255, 255, 0, .7)'
 })
-m.add(g_1)
-let i = 0
-const t = setInterval(function() {
-  if(i >= points.length - 1) clearInterval(t)
-  let num = 0
-  for(let j = 0, _l = points.length; j < _l; j++) {
-    const distance = getDistance(points[i], points[j])
-    if (
-      Math.abs(points[i][0] - points[j][0]) > 17 
-      || Math.abs(points[i][1] - points[j][1]) > 5 
-      || (points[i][0] === points[j][0] && points[i][1] === points[j][1])
-      || distance > 27) continue
-    if(num ++ > 6) break
-    const p1 =  points[i].map(item => { return item * 2.5})
-    g_1.add(new Line({
-      p1: points[i],
-      p2: points[j],
-      c: 'rgba(0, 255, 255, .5)',
-      w: .5
-    }))
-  }
-  m.render()
-  i ++
-}, 1000 / 1000)
 
-// for(let i = 0; i< points.length; i++) {
-//   g_1.add(new G({
-//     left: points[i][0],
-//     top: points[i][1],
-//     w: 1,
-//     h: 1,
-//     c: 'rgba(255, 255, 255, .9)',
-//     fill: true
-//   }))  
-// }
+let l_1 = new Line({
+  p1: [0, 0],
+  p2: [0, 0],
+  c: 'rgba(255, 255, 0, .7)'
+})
+let l_2 = new Line({
+  p1: [m.w, 0],
+  p2: [0, 0],
+  c: 'rgba(255, 255, 0, .7)'
+})
+let l_3 = new Line({
+  p1: [0, 0],
+  p2: [0, 0],
+  c: 'rgba(255, 255, 0, .7)'
+})
+let l_4 = new Line({
+  p1: [0, m.h],
+  p2: [0, 0],
+  c: 'rgba(255, 255, 0, .7)'
+})
+g_0.add(l_1, l_2, l_3, l_4)
 
+
+for(let i = 0; i < 9; i++) {
+  const perW = m.w / 3
+  const perH = m.h / 3
+  const margin = 30
+  let g_1 = new G({
+    left: i % 3 * perW + margin,
+    top: Math.floor(i / 3) * perH + margin,
+    w: perW - margin * 2,
+    h: perH - margin * 2,
+    fill: true,
+    onFocus: function() {
+      this.c = 'rgba(0, 0, 255, .3)'
+    }
+  })
+  m.add(g_1)
+  m.observerList.push(g_1)
+}
+
+m.add(g_0)
 m.render()
+m.addEventListener('mousemove', function() {
+  m.remove(g_1)
+  l_3.p1[0] = l_3.p2[0] = l_4.p1[0] = l_4.p2[0] = m.mouse.x
+  l_1.p1[1] = l_1.p2[1] = l_2.p1[1] = l_2.p2[1] = m.mouse.y
+  if(m.focus) {
+    // 边框
+    g_1.left = m.focus.left - 10
+    g_1.top = m.focus.top - 10
+    g_1.w = m.focus.w + 20
+    g_1.h = m.focus.h + 20
+    m.add(g_1)
+    // 线条
+    l_1.p2[0] = g_1.left
+    l_2.p2[0] = g_1.left + g_1.w
+    l_3.p2[1] = g_1.top
+    l_4.p2[1] = g_1.top + g_1.h
+  } else {
+    l_1.p2[0] = m.mouse.x
+    l_2.p2[0] = m.mouse.x
+    l_3.p2[1] = m.mouse.y
+    l_4.p2[1] = m.mouse.y
+  }
+})

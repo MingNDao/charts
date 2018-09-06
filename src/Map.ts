@@ -1,6 +1,9 @@
 import Painter from 'src/Painter'
 import G from 'models/G'
 
+const safeEvent = [
+  'mousemove'
+]
 export default class Map {
   w: number
   h: number
@@ -18,6 +21,9 @@ export default class Map {
     w: number,
     h: number
   }
+  listener: {
+    mousemove: Array<Function> 
+  }
   constructor(id: string, dpr: number = 1) {
     this.fr = document.getElementById(id)
     this.el = document.createElement('canvas')
@@ -26,6 +32,9 @@ export default class Map {
       y: 0,
       w: this.fr.offsetWidth,
       h: this.fr.offsetHeight
+    }
+    this.listener = {
+      mousemove: []
     }
     this.el.width = this.fr.offsetWidth * dpr
     this.w = this.fr.offsetWidth
@@ -42,11 +51,11 @@ export default class Map {
     this.nodes = []
     this.observerList = []
     this.mouse = {}
-    // this.el.addEventListener('mousemove', () => { this.handleMousemove(event) })
+    this.el.addEventListener('mousemove', () => { this.handleMousemove(event) })
   }
   render(clear: boolean = true) {
     const { nodes, C, w, h, view } = this
-    clear && C.clearRect(view.x, view.y, w, h)
+    clear && C.clearRect(view.x - 1, view.y - 1, w + 1, h + 1)
     for(let node of nodes) {
       Painter.draw(C, node.tag, node)
     }
@@ -56,13 +65,15 @@ export default class Map {
     this.view.y += y
     this.C.translate(-x, -y)
   }
-  add(obj: any) {
-    this.nodes.push(obj)
-    obj.parent = this
+  add(...args) {
+    this.nodes.push(...args)
+    // [...args].forEach(item => {
+    //   item.parent = this
+    // })
   }
   remove(obj: any) {
     let i = this.nodes.indexOf(obj)
-    this.nodes.splice(i, 1)
+    i !== -1 && this.nodes.splice(i, 1)
   }
   clear() {
     const { C, w, h, view } = this
@@ -86,19 +97,28 @@ export default class Map {
     }
     return temp
   }
+  addEventListener(trig: string, fn: Function) {
+    if(!(this.listener.hasOwnProperty(trig))) return
+    this.listener[trig].push(fn)
+  }
   handleMousemove(e) {
     if (!e) return
-    const { observerList } = this
+    const { observerList, listener } = this
+    const _self = this
     this.mouse.x = e.layerX
     this.mouse.y = e.layerY
+    listener['mousemove'].forEach(fn => {
+      fn()
+    })
     let focus = Map.getFocusNode(this.mouse, observerList)
     if(this.focus && focus !== this.focus) this.focus.onBlur()
     if(focus) {
       this.focus = focus
       focus.onFocus()
     } else {
+      this.focus && this.focus.onBlur()
       this.focus = null
-    }
+    }    
     this.render()
   }
 }

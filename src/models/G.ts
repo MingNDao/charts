@@ -10,6 +10,7 @@ interface g {
   c?: string
   onFocus?: Function
   fill?: boolean
+  stroke?: boolean
 }
 /**
  * 容器
@@ -26,6 +27,7 @@ export default class G extends vNode{
   c: string
   _c: string
   fill: boolean = false
+  stroke: boolean = false
   clip: boolean = false
   constructor(obj:g = {}) {
     super('G')
@@ -54,7 +56,7 @@ export default class G extends vNode{
 }
 
 Painter.reg('G', function(node: G){
-  const { children, center, deg, w, h, left, top, c = 'rgba(0, 0, 0, .1)', clip, fill } = node
+  const { children, center, deg, w, h, left, top, c = 'rgba(0, 0, 0, .1)', clip, fill, stroke } = node
   if(clip && w && h) {
     this.beginPath()
     this.rect(left, top, w, h)
@@ -68,6 +70,9 @@ Painter.reg('G', function(node: G){
   if(fill) {
     this.fillStyle = c
     this.fill()
+  } else if (stroke) {
+    this.strokeStyle = c
+    this.stroke()
   }
   const self = this
   for(let x in children) {
