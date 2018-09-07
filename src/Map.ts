@@ -2,7 +2,8 @@ import Painter from 'src/Painter'
 import G from 'models/G'
 
 const safeEvent = [
-  'mousemove'
+  'mousemove',
+  'click'
 ]
 export default class Map {
   w: number
@@ -22,7 +23,7 @@ export default class Map {
     h: number
   }
   listener: {
-    mousemove: Array<Function> 
+    mousemove: Array<Function>
   }
   constructor(id: string, dpr: number = 1) {
     this.fr = document.getElementById(id)
@@ -32,9 +33,6 @@ export default class Map {
       y: 0,
       w: this.fr.offsetWidth,
       h: this.fr.offsetHeight
-    }
-    this.listener = {
-      mousemove: []
     }
     this.el.width = this.fr.offsetWidth * dpr
     this.w = this.fr.offsetWidth
@@ -51,7 +49,7 @@ export default class Map {
     this.nodes = []
     this.observerList = []
     this.mouse = {}
-    this.el.addEventListener('mousemove', () => { this.handleMousemove(event) })
+    // this.el.addEventListener('mousemove', () => { this.handleMousemove(event) })
   }
   render(clear: boolean = true) {
     const { nodes, C, w, h, view } = this
