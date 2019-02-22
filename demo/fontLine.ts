@@ -8,7 +8,7 @@ function getTextPoints(txt):Array<[number, number]> {
   document.getElementById('app').appendChild(M)
   const C = M.getContext('2d')
   M.height = 120
-  M.width = 120 * 4 // C.measureText(txt).width + 20
+  M.width = 120 * 10 // C.measureText(txt).width + 20
   C.font="120px 黑体 bold"
   C.fillStyle = '#fff'  
   console.log( C.measureText(txt).width)
@@ -34,7 +34,7 @@ function getTextPoints(txt):Array<[number, number]> {
 function getDistance(p1, p2) {
   return Math.sqrt(Math.pow(p1[0] - p2[0], 2) + Math.pow(p1[1] - p2[1], 2))
 }
-const TXT = '诺兹多姆'
+const TXT = 'CMS-CHART'
 let points: Array<[number, number]> = getTextPoints(TXT).map(item => {
   const temp:[number, number] = [
     item[0] * 1.5,
@@ -71,16 +71,5 @@ const t = setInterval(function() {
   m.render()
   i ++
 }, 1000 / 1000)
-
-// for(let i = 0; i< points.length; i++) {
-//   g_1.add(new G({
-//     left: points[i][0],
-//     top: points[i][1],
-//     w: 1,
-//     h: 1,
-//     c: 'rgba(255, 255, 255, .9)',
-//     fill: true
-//   }))  
-// }
 
 m.render()
