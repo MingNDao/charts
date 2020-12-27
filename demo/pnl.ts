@@ -27,7 +27,7 @@ function x() {
       const distance = getDistance(s.wall[i], s.wall[j])
       if (
         Math.abs(s.wall[i][0] - s.wall[j][0]) > 10
-        || Math.abs(s.wall[i][1] - s.wall[j][1]) > 10 
+        || Math.abs(s.wall[i][1] - s.wall[j][1]) > 10
         || (s.wall[i][0] === s.wall[j][0] && s.wall[i][1] === s.wall[j][1])
         || distance > 10) continue
       if(num ++ > 15) break
@@ -46,7 +46,8 @@ function x() {
 }
 
 m.el.addEventListener('click', function(e) {
-  s.addNode(e.layerX, e.layerY, m.dpr)
+  console.log(e)
+  s.addNode(e.x, e.y, m.dpr)
   clearInterval(t)
   x()
 })

@@ -10,7 +10,7 @@ function getTextPoints(txt):Array<[number, number]> {
   M.height = 120
   M.width = 120 * 10 // C.measureText(txt).width + 20
   C.font="120px 黑体 bold"
-  C.fillStyle = '#fff'  
+  C.fillStyle = '#fff'
   console.log( C.measureText(txt).width)
   C.textAlign = "left"
   C.textBaseline = "middle"
@@ -34,7 +34,7 @@ function getTextPoints(txt):Array<[number, number]> {
 function getDistance(p1, p2) {
   return Math.sqrt(Math.pow(p1[0] - p2[0], 2) + Math.pow(p1[1] - p2[1], 2))
 }
-const TXT = 'CMS-CHART'
+const TXT = '牧风逐云123'
 let points: Array<[number, number]> = getTextPoints(TXT).map(item => {
   const temp:[number, number] = [
     item[0] * 1.5,
@@ -55,8 +55,8 @@ const t = setInterval(function() {
   for(let j = 0, _l = points.length; j < _l; j++) {
     const distance = getDistance(points[i], points[j])
     if (
-      Math.abs(points[i][0] - points[j][0]) > 17 
-      || Math.abs(points[i][1] - points[j][1]) > 5 
+      Math.abs(points[i][0] - points[j][0]) > 25
+      || Math.abs(points[i][1] - points[j][1]) > 25
       || (points[i][0] === points[j][0] && points[i][1] === points[j][1])
       || distance > 27) continue
     if(num ++ > 1) break
@@ -70,6 +70,6 @@ const t = setInterval(function() {
   }
   m.render()
   i ++
-}, 1000 / 1000)
+}, 1)
 
 m.render()

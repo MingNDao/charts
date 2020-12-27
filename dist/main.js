@@ -11,12 +11,11 @@
 /******/
 /******/ 	// eslint-disable-next-line no-unused-vars
 /******/ 	function hotDownloadUpdateChunk(chunkId) {
-/******/ 		var head = document.getElementsByTagName("head")[0];
 /******/ 		var script = document.createElement("script");
 /******/ 		script.charset = "utf-8";
 /******/ 		script.src = __webpack_require__.p + "" + chunkId + "." + hotCurrentHash + ".hot-update.js";
-/******/ 		;
-/******/ 		head.appendChild(script);
+/******/ 		if (null) script.crossOrigin = null;
+/******/ 		document.head.appendChild(script);
 /******/ 	}
 /******/
 /******/ 	// eslint-disable-next-line no-unused-vars
@@ -64,7 +63,7 @@
 /******/
 /******/ 	var hotApplyOnUpdate = true;
 /******/ 	// eslint-disable-next-line no-unused-vars
-/******/ 	var hotCurrentHash = "32e00925908c7118054e";
+/******/ 	var hotCurrentHash = "8652de591ee8fef47f1c";
 /******/ 	var hotRequestTimeout = 10000;
 /******/ 	var hotCurrentModuleData = {};
 /******/ 	var hotCurrentChildModule;
@@ -157,13 +156,14 @@
 /******/ 			_declinedDependencies: {},
 /******/ 			_selfAccepted: false,
 /******/ 			_selfDeclined: false,
+/******/ 			_selfInvalidated: false,
 /******/ 			_disposeHandlers: [],
 /******/ 			_main: hotCurrentChildModule !== moduleId,
 /******/
 /******/ 			// Module API
 /******/ 			active: true,
 /******/ 			accept: function(dep, callback) {
-/******/ 				if (typeof dep === "undefined") hot._selfAccepted = true;
+/******/ 				if (dep === undefined) hot._selfAccepted = true;
 /******/ 				else if (typeof dep === "function") hot._selfAccepted = dep;
 /******/ 				else if (typeof dep === "object")
 /******/ 					for (var i = 0; i < dep.length; i++)
@@ -171,7 +171,7 @@
 /******/ 				else hot._acceptedDependencies[dep] = callback || function() {};
 /******/ 			},
 /******/ 			decline: function(dep) {
-/******/ 				if (typeof dep === "undefined") hot._selfDeclined = true;
+/******/ 				if (dep === undefined) hot._selfDeclined = true;
 /******/ 				else if (typeof dep === "object")
 /******/ 					for (var i = 0; i < dep.length; i++)
 /******/ 						hot._declinedDependencies[dep[i]] = true;
@@ -186,6 +186,29 @@
 /******/ 			removeDisposeHandler: function(callback) {
 /******/ 				var idx = hot._disposeHandlers.indexOf(callback);
 /******/ 				if (idx >= 0) hot._disposeHandlers.splice(idx, 1);
+/******/ 			},
+/******/ 			invalidate: function() {
+/******/ 				this._selfInvalidated = true;
+/******/ 				switch (hotStatus) {
+/******/ 					case "idle":
+/******/ 						hotUpdate = {};
+/******/ 						hotUpdate[moduleId] = modules[moduleId];
+/******/ 						hotSetStatus("ready");
+/******/ 						break;
+/******/ 					case "ready":
+/******/ 						hotApplyInvalidatedModule(moduleId);
+/******/ 						break;
+/******/ 					case "prepare":
+/******/ 					case "check":
+/******/ 					case "dispose":
+/******/ 					case "apply":
+/******/ 						(hotQueuedInvalidatedModules =
+/******/ 							hotQueuedInvalidatedModules || []).push(moduleId);
+/******/ 						break;
+/******/ 					default:
+/******/ 						// ignore requests in error states
+/******/ 						break;
+/******/ 				}
 /******/ 			},
 /******/
 /******/ 			// Management API
@@ -228,7 +251,7 @@
 /******/ 	var hotDeferred;
 /******/
 /******/ 	// The update info
-/******/ 	var hotUpdate, hotUpdateNewHash;
+/******/ 	var hotUpdate, hotUpdateNewHash, hotQueuedInvalidatedModules;
 /******/
 /******/ 	function toModuleId(id) {
 /******/ 		var isNumber = +id + "" === id;
@@ -243,7 +266,7 @@
 /******/ 		hotSetStatus("check");
 /******/ 		return hotDownloadManifest(hotRequestTimeout).then(function(update) {
 /******/ 			if (!update) {
-/******/ 				hotSetStatus("idle");
+/******/ 				hotSetStatus(hotApplyInvalidatedModules() ? "ready" : "idle");
 /******/ 				return null;
 /******/ 			}
 /******/ 			hotRequestedFilesMap = {};
@@ -262,7 +285,6 @@
 /******/ 			var chunkId = "main";
 /******/ 			// eslint-disable-next-line no-lone-blocks
 /******/ 			{
-/******/ 				/*globals chunkId */
 /******/ 				hotEnsureUpdateChunk(chunkId);
 /******/ 			}
 /******/ 			if (
@@ -337,6 +359,11 @@
 /******/ 		if (hotStatus !== "ready")
 /******/ 			throw new Error("apply() is only allowed in ready status");
 /******/ 		options = options || {};
+/******/ 		return hotApplyInternal(options);
+/******/ 	}
+/******/
+/******/ 	function hotApplyInternal(options) {
+/******/ 		hotApplyInvalidatedModules();
 /******/
 /******/ 		var cb;
 /******/ 		var i;
@@ -348,7 +375,7 @@
 /******/ 			var outdatedModules = [updateModuleId];
 /******/ 			var outdatedDependencies = {};
 /******/
-/******/ 			var queue = outdatedModules.slice().map(function(id) {
+/******/ 			var queue = outdatedModules.map(function(id) {
 /******/ 				return {
 /******/ 					chain: [id],
 /******/ 					id: id
@@ -359,7 +386,11 @@
 /******/ 				var moduleId = queueItem.id;
 /******/ 				var chain = queueItem.chain;
 /******/ 				module = installedModules[moduleId];
-/******/ 				if (!module || module.hot._selfAccepted) continue;
+/******/ 				if (
+/******/ 					!module ||
+/******/ 					(module.hot._selfAccepted && !module.hot._selfInvalidated)
+/******/ 				)
+/******/ 					continue;
 /******/ 				if (module.hot._selfDeclined) {
 /******/ 					return {
 /******/ 						type: "self-declined",
@@ -525,12 +556,18 @@
 /******/ 			moduleId = outdatedModules[i];
 /******/ 			if (
 /******/ 				installedModules[moduleId] &&
-/******/ 				installedModules[moduleId].hot._selfAccepted
-/******/ 			)
+/******/ 				installedModules[moduleId].hot._selfAccepted &&
+/******/ 				// removed self-accepted modules should not be required
+/******/ 				appliedUpdate[moduleId] !== warnUnexpectedRequire &&
+/******/ 				// when called invalidate self-accepting is not possible
+/******/ 				!installedModules[moduleId].hot._selfInvalidated
+/******/ 			) {
 /******/ 				outdatedSelfAcceptedModules.push({
 /******/ 					module: moduleId,
+/******/ 					parents: installedModules[moduleId].parents.slice(),
 /******/ 					errorHandler: installedModules[moduleId].hot._selfAccepted
 /******/ 				});
+/******/ 			}
 /******/ 		}
 /******/
 /******/ 		// Now in "dispose" phase
@@ -597,10 +634,14 @@
 /******/ 			}
 /******/ 		}
 /******/
-/******/ 		// Not in "apply" phase
+/******/ 		// Now in "apply" phase
 /******/ 		hotSetStatus("apply");
 /******/
-/******/ 		hotCurrentHash = hotUpdateNewHash;
+/******/ 		if (hotUpdateNewHash !== undefined) {
+/******/ 			hotCurrentHash = hotUpdateNewHash;
+/******/ 			hotUpdateNewHash = undefined;
+/******/ 		}
+/******/ 		hotUpdate = undefined;
 /******/
 /******/ 		// insert new code
 /******/ 		for (moduleId in appliedUpdate) {
@@ -653,7 +694,8 @@
 /******/ 		for (i = 0; i < outdatedSelfAcceptedModules.length; i++) {
 /******/ 			var item = outdatedSelfAcceptedModules[i];
 /******/ 			moduleId = item.module;
-/******/ 			hotCurrentParents = [moduleId];
+/******/ 			hotCurrentParents = item.parents;
+/******/ 			hotCurrentChildModule = moduleId;
 /******/ 			try {
 /******/ 				__webpack_require__(moduleId);
 /******/ 			} catch (err) {
@@ -695,10 +737,33 @@
 /******/ 			return Promise.reject(error);
 /******/ 		}
 /******/
+/******/ 		if (hotQueuedInvalidatedModules) {
+/******/ 			return hotApplyInternal(options).then(function(list) {
+/******/ 				outdatedModules.forEach(function(moduleId) {
+/******/ 					if (list.indexOf(moduleId) < 0) list.push(moduleId);
+/******/ 				});
+/******/ 				return list;
+/******/ 			});
+/******/ 		}
+/******/
 /******/ 		hotSetStatus("idle");
 /******/ 		return new Promise(function(resolve) {
 /******/ 			resolve(outdatedModules);
 /******/ 		});
+/******/ 	}
+/******/
+/******/ 	function hotApplyInvalidatedModules() {
+/******/ 		if (hotQueuedInvalidatedModules) {
+/******/ 			if (!hotUpdate) hotUpdate = {};
+/******/ 			hotQueuedInvalidatedModules.forEach(hotApplyInvalidatedModule);
+/******/ 			hotQueuedInvalidatedModules = undefined;
+/******/ 			return true;
+/******/ 		}
+/******/ 	}
+/******/
+/******/ 	function hotApplyInvalidatedModule(moduleId) {
+/******/ 		if (!Object.prototype.hasOwnProperty.call(hotUpdate, moduleId))
+/******/ 			hotUpdate[moduleId] = modules[moduleId];
 /******/ 	}
 /******/
 /******/ 	// The module cache
@@ -794,6 +859,93 @@
 /************************************************************************/
 /******/ ({
 
+/***/ "./demo/fontLine.ts":
+/*!**************************!*\
+  !*** ./demo/fontLine.ts ***!
+  \**************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+var map_1 = __webpack_require__(/*! src/map */ "./src/map.ts");
+var G_1 = __webpack_require__(/*! src/models/G */ "./src/models/G.ts");
+var Line_1 = __webpack_require__(/*! src/models/Line */ "./src/models/Line.ts");
+function getTextPoints(txt) {
+    var gap = 14;
+    var M = document.createElement('canvas');
+    document.getElementById('app').appendChild(M);
+    var C = M.getContext('2d');
+    M.height = 120;
+    M.width = 120 * 10; // C.measureText(txt).width + 20
+    C.font = "120px 黑体 bold";
+    C.fillStyle = '#fff';
+    console.log(C.measureText(txt).width);
+    C.textAlign = "left";
+    C.textBaseline = "middle";
+    C.fillText(txt, 0, M.height / 2);
+    var _d = C.getImageData(0, 0, M.width, M.height);
+    var points = [];
+    for (var i_1 = 0; i_1 < _d.data.length; i_1 += (4 * gap)) {
+        _d.data[i_1] === 255 && points.push(getCoord(i_1, M.width));
+    }
+    document.getElementById('app').removeChild(M);
+    function getCoord(i, w) {
+        i /= 4;
+        var _y = Math.floor(i / w);
+        var _x = i - (_y * w);
+        return [_x, _y];
+    }
+    return points;
+}
+function getDistance(p1, p2) {
+    return Math.sqrt(Math.pow(p1[0] - p2[0], 2) + Math.pow(p1[1] - p2[1], 2));
+}
+var TXT = '牧风逐云123';
+var points = getTextPoints(TXT).map(function (item) {
+    var temp = [
+        item[0] * 1.5,
+        item[1] * 1.5
+    ];
+    return temp;
+});
+var m = new map_1.default('app');
+var g_1 = new G_1.default({
+    left: 100,
+    top: 100
+});
+m.add(g_1);
+var i = 0;
+var t = setInterval(function () {
+    if (i >= points.length - 1)
+        clearInterval(t);
+    var num = 0;
+    for (var j = 0, _l = points.length; j < _l; j++) {
+        var distance = getDistance(points[i], points[j]);
+        if (Math.abs(points[i][0] - points[j][0]) > 17
+            || Math.abs(points[i][1] - points[j][1]) > 5
+            || (points[i][0] === points[j][0] && points[i][1] === points[j][1])
+            || distance > 27)
+            continue;
+        if (num++ > 1)
+            break;
+        var p1 = points[i].map(function (item) { return item * 2.5; });
+        g_1.add(new Line_1.default({
+            p1: points[i],
+            p2: points[j],
+            c: 'rgba(0, 255, 255, .5)',
+            w: .5
+        }));
+    }
+    m.render();
+    i++;
+}, 500 / 1000);
+m.render();
+
+
+/***/ }),
+
 /***/ "./index.ts":
 /*!******************!*\
   !*** ./index.ts ***!
@@ -804,148 +956,7 @@
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-var Map_1 = __webpack_require__(/*! src/Map */ "./src/Map.ts");
-var RectCoordinate_1 = __webpack_require__(/*! models/RectCoordinate */ "./src/models/RectCoordinate.ts");
-var G_1 = __webpack_require__(/*! models/G */ "./src/models/G.ts");
-var temp_1 = __webpack_require__(/*! models/temp */ "./src/models/temp.ts");
-/* 测试 */
-var m = new Map_1.default('app', 2);
-var g = new G_1.default();
-var rc_1 = new RectCoordinate_1.default({
-    left: 100,
-    top: 100,
-    w: m.w - 150,
-    h: 400,
-    data: []
-});
-var _data = Array.apply(null, { length: 241 }).map(function (item) {
-    return Math.random() * 500 + 500;
-});
-rc_1.update(_data);
-var t_1 = new temp_1.default({
-    left: 100,
-    top: 500,
-    w: m.w - 150,
-    h: 200,
-    data: _data
-});
-g.add(rc_1);
-g.add(t_1);
-m.add(g);
-m.render();
-
-
-/***/ }),
-
-/***/ "./src/Map.ts":
-/*!********************!*\
-  !*** ./src/Map.ts ***!
-  \********************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-var Painter_1 = __webpack_require__(/*! src/Painter */ "./src/Painter.ts");
-var Map = /** @class */ (function () {
-    function Map(id, dpr) {
-        if (dpr === void 0) { dpr = 1; }
-        var _this = this;
-        this.fr = document.getElementById(id);
-        this.el = document.createElement('canvas');
-        this.view = {
-            x: 0,
-            y: 0,
-            w: this.fr.offsetWidth,
-            h: this.fr.offsetHeight
-        };
-        this.el.width = this.fr.offsetWidth * dpr;
-        this.w = this.fr.offsetWidth;
-        this.el.height = this.fr.offsetHeight * dpr;
-        this.h = this.fr.offsetHeight;
-        this.dpr = dpr;
-        this.el.style.width = '100%'; // this.fr.offsetWidth + 'px'
-        this.el.style.height = '100%'; // this.fr.offsetHeight + 'px'
-        this.fr.appendChild(this.el);
-        this.C = this.el.getContext('2d');
-        this.C.translate(.5, .5);
-        this.C.imageSmoothingEnabled = true;
-        this.C.scale(dpr, dpr);
-        this.nodes = [];
-        this.observerList = [];
-        this.mouse = {};
-        this.el.addEventListener('mousemove', function () { _this.handleMousemove(event); });
-    }
-    Map.prototype.render = function (clear) {
-        if (clear === void 0) { clear = true; }
-        var _a = this, nodes = _a.nodes, C = _a.C, w = _a.w, h = _a.h, view = _a.view;
-        clear && C.clearRect(view.x, view.y, w, h);
-        for (var _i = 0, nodes_1 = nodes; _i < nodes_1.length; _i++) {
-            var node = nodes_1[_i];
-            Painter_1.default.draw(C, node.tag, node);
-        }
-    };
-    Map.prototype.viewMove = function (x, y) {
-        this.view.x += x;
-        this.view.y += y;
-        this.C.translate(-x, -y);
-    };
-    Map.prototype.add = function (obj) {
-        this.nodes.push(obj);
-        obj.parent = this;
-    };
-    Map.prototype.remove = function (obj) {
-        var i = this.nodes.indexOf(obj);
-        this.nodes.splice(i, 1);
-    };
-    Map.prototype.clear = function () {
-        var _a = this, C = _a.C, w = _a.w, h = _a.h, view = _a.view;
-        C.clearRect(view.x, view.y, w, h);
-        this.C.translate(view.x, view.y);
-        this.nodes = [];
-        this.view.x = 0;
-        this.view.y = 0;
-    };
-    Map.getFocusNode = function (mouse, observerList) {
-        var temp;
-        var x = mouse.x, y = mouse.y;
-        for (var i = 0; i < observerList.length; i++) {
-            var _o = observerList[i];
-            if (_o.left > x)
-                continue;
-            if (_o.left + _o.w < x)
-                continue;
-            if (_o.top > y)
-                continue;
-            if (_o.top + _o.h < y)
-                continue;
-            temp = _o;
-            break;
-        }
-        return temp;
-    };
-    Map.prototype.handleMousemove = function (e) {
-        if (!e)
-            return;
-        var observerList = this.observerList;
-        this.mouse.x = e.layerX;
-        this.mouse.y = e.layerY;
-        var focus = Map.getFocusNode(this.mouse, observerList);
-        if (this.focus && focus !== this.focus)
-            this.focus.onBlur();
-        if (focus) {
-            this.focus = focus;
-            focus.onFocus();
-        }
-        else {
-            this.focus = null;
-        }
-        this.render();
-    };
-    return Map;
-}());
-exports.default = Map;
+__webpack_require__(/*! ./demo/fontLine */ "./demo/fontLine.ts");
 
 
 /***/ }),
@@ -1002,6 +1013,139 @@ exports.default = vNode;
 
 /***/ }),
 
+/***/ "./src/map.ts":
+/*!********************!*\
+  !*** ./src/map.ts ***!
+  \********************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+var Painter_1 = __webpack_require__(/*! src/Painter */ "./src/Painter.ts");
+var safeEvent = [
+    'mousemove',
+    'click'
+];
+var Map = /** @class */ (function () {
+    function Map(id, dpr) {
+        if (dpr === void 0) { dpr = 1; }
+        this.fr = document.getElementById(id);
+        this.el = document.createElement('canvas');
+        this.view = {
+            x: 0,
+            y: 0,
+            w: this.fr.offsetWidth,
+            h: this.fr.offsetHeight
+        };
+        this.el.width = this.fr.offsetWidth * dpr;
+        this.w = this.fr.offsetWidth;
+        this.el.height = this.fr.offsetHeight * dpr;
+        this.h = this.fr.offsetHeight;
+        this.dpr = dpr;
+        this.el.style.width = '100%'; // this.fr.offsetWidth + 'px'
+        this.el.style.height = '100%'; // this.fr.offsetHeight + 'px'
+        this.fr.appendChild(this.el);
+        this.C = this.el.getContext('2d');
+        this.C.translate(.5, .5);
+        this.C.imageSmoothingEnabled = true;
+        this.C.scale(dpr, dpr);
+        this.nodes = [];
+        this.observerList = [];
+        this.mouse = {};
+        // this.el.addEventListener('mousemove', () => { this.handleMousemove(event) })
+    }
+    Map.prototype.render = function (clear) {
+        if (clear === void 0) { clear = true; }
+        var _a = this, nodes = _a.nodes, C = _a.C, w = _a.w, h = _a.h, view = _a.view;
+        clear && C.clearRect(view.x - 1, view.y - 1, w + 1, h + 1);
+        for (var _i = 0, nodes_1 = nodes; _i < nodes_1.length; _i++) {
+            var node = nodes_1[_i];
+            Painter_1.default.draw(C, node.tag, node);
+        }
+    };
+    Map.prototype.viewMove = function (x, y) {
+        this.view.x += x;
+        this.view.y += y;
+        this.C.translate(-x, -y);
+    };
+    Map.prototype.add = function () {
+        var _a;
+        var args = [];
+        for (var _i = 0; _i < arguments.length; _i++) {
+            args[_i] = arguments[_i];
+        }
+        (_a = this.nodes).push.apply(_a, args);
+        // [...args].forEach(item => {
+        //   item.parent = this
+        // })
+    };
+    Map.prototype.remove = function (obj) {
+        var i = this.nodes.indexOf(obj);
+        i !== -1 && this.nodes.splice(i, 1);
+    };
+    Map.prototype.clear = function () {
+        var _a = this, C = _a.C, w = _a.w, h = _a.h, view = _a.view;
+        C.clearRect(view.x, view.y, w, h);
+        this.C.translate(view.x, view.y);
+        this.nodes = [];
+        this.view.x = 0;
+        this.view.y = 0;
+    };
+    Map.getFocusNode = function (mouse, observerList) {
+        var temp;
+        var x = mouse.x, y = mouse.y;
+        for (var i = 0; i < observerList.length; i++) {
+            var _o = observerList[i];
+            if (_o.left > x)
+                continue;
+            if (_o.left + _o.w < x)
+                continue;
+            if (_o.top > y)
+                continue;
+            if (_o.top + _o.h < y)
+                continue;
+            temp = _o;
+            break;
+        }
+        return temp;
+    };
+    Map.prototype.addEventListener = function (trig, fn) {
+        if (!(this.listener.hasOwnProperty(trig)))
+            return;
+        this.listener[trig].push(fn);
+    };
+    Map.prototype.handleMousemove = function (e) {
+        if (!e)
+            return;
+        var _a = this, observerList = _a.observerList, listener = _a.listener;
+        var _self = this;
+        this.mouse.x = e.layerX;
+        this.mouse.y = e.layerY;
+        listener['mousemove'].forEach(function (fn) {
+            fn();
+        });
+        var focus = Map.getFocusNode(this.mouse, observerList);
+        if (this.focus && focus !== this.focus)
+            this.focus.onBlur();
+        if (focus) {
+            this.focus = focus;
+            focus.onFocus();
+        }
+        else {
+            this.focus && this.focus.onBlur();
+            this.focus = null;
+        }
+        this.render();
+    };
+    return Map;
+}());
+exports.default = Map;
+
+
+/***/ }),
+
 /***/ "./src/models/G.ts":
 /*!*************************!*\
   !*** ./src/models/G.ts ***!
@@ -1017,7 +1161,7 @@ var __extends = (this && this.__extends) || (function () {
             ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
             function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
         return extendStatics(d, b);
-    }
+    };
     return function (d, b) {
         extendStatics(d, b);
         function __() { this.constructor = d; }
@@ -1042,6 +1186,8 @@ var G = /** @class */ (function (_super) {
         _this.h = 0;
         _this.deg = 0;
         _this.center = [0, 0];
+        _this.fill = false;
+        _this.stroke = false;
         _this.clip = false;
         for (var x in obj) {
             _this[x] = obj[x];
@@ -1050,12 +1196,20 @@ var G = /** @class */ (function (_super) {
         _this.children = [];
         return _this;
     }
-    G.prototype.add = function (vNode) {
-        this.children.push(vNode);
+    G.prototype.add = function () {
+        var _a;
+        var args = [];
+        for (var _i = 0; _i < arguments.length; _i++) {
+            args[_i] = arguments[_i];
+        }
+        (_a = this.children).push.apply(_a, args);
     };
     G.prototype.remove = function (obj) {
         var i = this.children.indexOf(obj);
         this.children.splice(i, 1);
+    };
+    G.prototype.clear = function () {
+        this.children = [];
     };
     G.prototype.onFocus = function () {
         this.c = '#ff0';
@@ -1067,7 +1221,7 @@ var G = /** @class */ (function (_super) {
 }(VNode_1.default));
 exports.default = G;
 Painter_1.default.reg('G', function (node) {
-    var children = node.children, center = node.center, deg = node.deg, w = node.w, h = node.h, left = node.left, top = node.top, _a = node.c, c = _a === void 0 ? 'rgba(0, 0, 0, .1)' : _a, clip = node.clip;
+    var children = node.children, center = node.center, deg = node.deg, w = node.w, h = node.h, left = node.left, top = node.top, _a = node.c, c = _a === void 0 ? 'rgba(0, 0, 0, .1)' : _a, clip = node.clip, fill = node.fill, stroke = node.stroke;
     if (clip && w && h) {
         this.beginPath();
         this.rect(left, top, w, h);
@@ -1078,8 +1232,14 @@ Painter_1.default.reg('G', function (node) {
     this.rotate(deg * Math.PI / 180);
     this.translate(-center[0] + left, -center[1] + top);
     this.rect(0, 0, w, h);
-    // this.fillStyle = c
-    // this.fill()
+    if (fill) {
+        this.fillStyle = c;
+        this.fill();
+    }
+    else if (stroke) {
+        this.strokeStyle = c;
+        this.stroke();
+    }
     var self = this;
     for (var x in children) {
         Painter_1.default.draw(self, children[x].tag, children[x]);
@@ -1106,7 +1266,7 @@ var __extends = (this && this.__extends) || (function () {
             ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
             function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
         return extendStatics(d, b);
-    }
+    };
     return function (d, b) {
         extendStatics(d, b);
         function __() { this.constructor = d; }
@@ -1121,10 +1281,9 @@ var Line = /** @class */ (function (_super) {
     __extends(Line, _super);
     function Line(obj) {
         var _this = _super.call(this, 'LINE') || this;
+        _this.c = '#f00';
         _this.w = 1;
         _this.deg = 0;
-        if (!obj.c)
-            obj.c = '#ff0';
         if (!obj.w)
             obj.w = 1;
         for (var x in obj) {
@@ -1161,7 +1320,7 @@ var Line = /** @class */ (function (_super) {
      * 平移
      * @param x x { number }
      * @param y y { number }
-      */
+    */
     Line.prototype.translate = function (x, y) {
         this.matrix(1, 0, 0, 1, x, y);
     };
@@ -1176,440 +1335,6 @@ Painter_1.default.reg('LINE', function (node) {
     this.lineTo.apply(this, p2);
     this.strokeStyle = c;
     this.stroke();
-});
-
-
-/***/ }),
-
-/***/ "./src/models/Lines.ts":
-/*!*****************************!*\
-  !*** ./src/models/Lines.ts ***!
-  \*****************************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-var __extends = (this && this.__extends) || (function () {
-    var extendStatics = function (d, b) {
-        extendStatics = Object.setPrototypeOf ||
-            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
-        return extendStatics(d, b);
-    }
-    return function (d, b) {
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-var VNode_1 = __webpack_require__(/*! src/VNode */ "./src/VNode.ts");
-var Painter_1 = __webpack_require__(/*! src/Painter */ "./src/Painter.ts");
-/* 线段集合 */
-var Lines = /** @class */ (function (_super) {
-    __extends(Lines, _super);
-    function Lines(obj) {
-        var _this = _super.call(this, 'LINES') || this;
-        _this.w = 1;
-        _this.bezier = false;
-        _this.fill = false;
-        _this.fillStyle = '#ccc';
-        for (var x in obj) {
-            _this[x] = obj[x];
-        }
-        return _this;
-    }
-    return Lines;
-}(VNode_1.default));
-exports.default = Lines;
-Painter_1.default.reg('LINES', function (Lines) {
-    var pointers = Lines.pointers, _a = Lines.c, c = _a === void 0 ? '#ff0' : _a, _b = Lines.w, w = _b === void 0 ? 1 : _b, bezier = Lines.bezier, _c = Lines.fill, fill = _c === void 0 ? false : _c, fillStyle = Lines.fillStyle;
-    if (bezier) {
-        this.moveTo.apply(this, pointers[0]);
-        for (var x = 1; x < pointers.length; x++) {
-            var dX = (pointers[x][0] - pointers[x - 1][0]) * .75;
-            this.bezierCurveTo.apply(this, [pointers[x - 1][0] + dX, pointers[x - 1][1], pointers[x][0] - dX, pointers[x][1]].concat(pointers[x]));
-        }
-    }
-    else {
-        for (var x in pointers) {
-            this.lineTo.apply(this, pointers[x]);
-        }
-    }
-    if (fill) {
-        this.fillStyle = fillStyle;
-        this.fill();
-    }
-    this.lineWidth = w;
-    this.strokeStyle = c;
-    this.stroke();
-});
-
-
-/***/ }),
-
-/***/ "./src/models/RectCoordinate.ts":
-/*!**************************************!*\
-  !*** ./src/models/RectCoordinate.ts ***!
-  \**************************************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-var __extends = (this && this.__extends) || (function () {
-    var extendStatics = function (d, b) {
-        extendStatics = Object.setPrototypeOf ||
-            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
-        return extendStatics(d, b);
-    }
-    return function (d, b) {
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-var VNode_1 = __webpack_require__(/*! src/VNode */ "./src/VNode.ts");
-var Painter_1 = __webpack_require__(/*! src/Painter */ "./src/Painter.ts");
-var Line_1 = __webpack_require__(/*! models/Line */ "./src/models/Line.ts");
-var Lines_1 = __webpack_require__(/*! models/Lines */ "./src/models/Lines.ts");
-var G_1 = __webpack_require__(/*! models/G */ "./src/models/G.ts");
-var Text_1 = __webpack_require__(/*! models/Text */ "./src/models/Text.ts");
-var tag = 'RECT_COORDINATE';
-var RectCoordinate = /** @class */ (function (_super) {
-    __extends(RectCoordinate, _super);
-    function RectCoordinate(obj) {
-        var _this = _super.call(this, tag) || this;
-        _this.w = 100;
-        _this.h = 100;
-        _this.left = 0;
-        _this.top = 0;
-        _this.minX = 0;
-        _this.maxX = 241;
-        _this.minY = 0;
-        _this.maxY = 100;
-        _this.length = 241;
-        for (var x in obj) {
-            _this[x] = obj[x];
-        }
-        _this.c = "rgba(" + Math.round(Math.random() * 0xff) + ", " + Math.round(Math.random() * 0xff) + ", " + Math.round(Math.random() * 0xff) + ", .3)";
-        _this.update(_this.data);
-        return _this;
-    }
-    // 数据更新
-    RectCoordinate.prototype.update = function (data) {
-        this.data = data;
-        if (!data || data.length <= 1)
-            return;
-        var _maxY = Math.max.apply(Math, this.data);
-        var _minY = Math.min.apply(Math, this.data);
-        this.maxY = _maxY + (_maxY - _minY) * .3;
-        this.minY = _minY - (_maxY - _minY) * .3;
-    };
-    // 坐标映射
-    RectCoordinate.prototype.coord = function (pointer) {
-        var _a = this, maxX = _a.maxX, maxY = _a.maxY, minX = _a.minX, minY = _a.minY, w = _a.w, h = _a.h, top = _a.top, perW = _a.perW;
-        var perX = w / (maxX - minX);
-        var perY = h / (maxY - minY);
-        var _x = perW * pointer[0];
-        var _y = h - (pointer[1] - minY) * perY;
-        return [_x, _y];
-    };
-    Object.defineProperty(RectCoordinate.prototype, "perW", {
-        // 单位宽度
-        get: function () {
-            return this.w / this.length;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    return RectCoordinate;
-}(VNode_1.default));
-exports.default = RectCoordinate;
-Painter_1.default.reg(tag, function (node) {
-    var w = node.w, h = node.h, left = node.left, top = node.top, minX = node.minX, minY = node.minY, maxX = node.maxX, maxY = node.maxY, data = node.data, c = node.c;
-    var _self = this;
-    var g = new G_1.default({
-        left: left,
-        top: top,
-        w: w,
-        h: h,
-        c: c
-    });
-    // 创建坐标
-    var rc = new Lines_1.default({
-        pointers: [
-            [0, 0],
-            [0, h],
-            [0 + w, h],
-            [0 + w, 0]
-        ],
-        c: '#ddd',
-        w: .3
-    });
-    // 纵坐标刻度
-    var g_v = new G_1.default();
-    var g_0 = new G_1.default();
-    for (var x = 0; x <= 11; x++) {
-        var _x = -10;
-        var _y = h - x * (h / 11);
-        g_v.add(new Line_1.default({
-            p1: node.coord([0, (maxY - minY) / 11 * x + minY]),
-            p2: node.coord([241, (maxY - minY) / 11 * x + minY]),
-            c: 'rgba(233, 233, 233, .3)',
-            w: .3
-        }));
-        g_v.add(new Text_1.default({
-            text: ((maxY - minY) / 11 * x + minY).toFixed(2),
-            left: _x,
-            top: _y,
-            textAlign: 'right',
-            c: '#ccc'
-        }));
-    }
-    // 横坐标刻度
-    var g_h = new G_1.default();
-    var strs = ['9:30', '10:00', '10:30', '11:00', '11:30/13:00', '13:30', '14:00', "14:30", "15:00"];
-    for (var i = 0; i < strs.length; i++) {
-        var _x = w / (strs.length - 1) * i;
-        var _y = h + 12;
-        g_h.add(new Text_1.default({
-            text: strs[i],
-            left: _x,
-            top: _y,
-            textAlign: 'center',
-            c: '#ccc'
-        }));
-    }
-    g.add(g_v);
-    g.add(g_h);
-    g.add(rc);
-    // 绘制折线
-    var perW = node.perW;
-    var _data = data.map(function (item, index) { return node.coord([index, item]); });
-    var l_0 = new Lines_1.default({
-        pointers: _data,
-        c: 'rgb(91, 161, 236)',
-        bezier: true,
-        w: .5
-    });
-    l_0.bezier = !l_0.bezier;
-    g.add(l_0);
-    console.log(g);
-    Painter_1.default.draw(_self, 'G', g);
-});
-
-
-/***/ }),
-
-/***/ "./src/models/Text.ts":
-/*!****************************!*\
-  !*** ./src/models/Text.ts ***!
-  \****************************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-var __extends = (this && this.__extends) || (function () {
-    var extendStatics = function (d, b) {
-        extendStatics = Object.setPrototypeOf ||
-            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
-        return extendStatics(d, b);
-    }
-    return function (d, b) {
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-var VNode_1 = __webpack_require__(/*! src/VNode */ "./src/VNode.ts");
-var Painter_1 = __webpack_require__(/*! src/Painter */ "./src/Painter.ts");
-var tag = 'TEXT';
-var Text = /** @class */ (function (_super) {
-    __extends(Text, _super);
-    function Text(obj) {
-        if (obj === void 0) { obj = { text: '' }; }
-        var _this = _super.call(this, tag) || this;
-        _this.left = 10;
-        _this.top = 10;
-        _this.textAlign = 'center';
-        _this.c = '#fff';
-        _this.font = '12px "宋体"';
-        _this.baseLine = 'middle';
-        for (var x in obj) {
-            _this[x] = obj[x];
-        }
-        return _this;
-    }
-    return Text;
-}(VNode_1.default));
-exports.default = Text;
-Painter_1.default.reg(tag, function (node) {
-    var left = node.left, top = node.top, textAlign = node.textAlign, c = node.c, font = node.font;
-    this.textAlign = textAlign;
-    this.fillStyle = c;
-    this.font = font;
-    this.fillText(node.text, left, top);
-});
-
-
-/***/ }),
-
-/***/ "./src/models/temp.ts":
-/*!****************************!*\
-  !*** ./src/models/temp.ts ***!
-  \****************************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-var __extends = (this && this.__extends) || (function () {
-    var extendStatics = function (d, b) {
-        extendStatics = Object.setPrototypeOf ||
-            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
-        return extendStatics(d, b);
-    }
-    return function (d, b) {
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-var VNode_1 = __webpack_require__(/*! src/VNode */ "./src/VNode.ts");
-var Painter_1 = __webpack_require__(/*! src/Painter */ "./src/Painter.ts");
-var Line_1 = __webpack_require__(/*! models/Line */ "./src/models/Line.ts");
-var Lines_1 = __webpack_require__(/*! models/Lines */ "./src/models/Lines.ts");
-var G_1 = __webpack_require__(/*! models/G */ "./src/models/G.ts");
-var Text_1 = __webpack_require__(/*! models/Text */ "./src/models/Text.ts");
-var tag = 'RECT_TEMP';
-var RectCoordinate = /** @class */ (function (_super) {
-    __extends(RectCoordinate, _super);
-    function RectCoordinate(obj) {
-        var _this = _super.call(this, tag) || this;
-        _this.w = 100;
-        _this.h = 100;
-        _this.left = 0;
-        _this.top = 0;
-        _this.minX = 0;
-        _this.maxX = 241;
-        _this.minY = 0;
-        _this.maxY = 100;
-        _this.length = 241;
-        for (var x in obj) {
-            _this[x] = obj[x];
-        }
-        _this.c = "rgba(" + Math.round(Math.random() * 0xff) + ", " + Math.round(Math.random() * 0xff) + ", " + Math.round(Math.random() * 0xff) + ", .3)";
-        _this.update(_this.data);
-        return _this;
-    }
-    // 数据更新
-    RectCoordinate.prototype.update = function (data) {
-        this.data = data;
-        if (!data || data.length <= 1)
-            return;
-        var _maxY = Math.max.apply(Math, this.data);
-        var _minY = 0; // Math.min.apply(Math, this.data)
-        this.maxY = _maxY + (_maxY - _minY) * .3;
-        this.minY = 0; // _minY - (_maxY - _minY) * .3
-    };
-    // 坐标映射
-    RectCoordinate.prototype.coord = function (pointer) {
-        var _a = this, maxX = _a.maxX, maxY = _a.maxY, minX = _a.minX, minY = _a.minY, w = _a.w, h = _a.h, top = _a.top, perW = _a.perW;
-        var perX = w / (maxX - minX);
-        var perY = h / (maxY - minY);
-        var _x = perW * pointer[0];
-        var _y = h - (pointer[1] - minY) * perY;
-        return [_x, _y];
-    };
-    Object.defineProperty(RectCoordinate.prototype, "perW", {
-        // 单位宽度
-        get: function () {
-            return this.w / this.length;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    return RectCoordinate;
-}(VNode_1.default));
-exports.default = RectCoordinate;
-Painter_1.default.reg(tag, function (node) {
-    var w = node.w, h = node.h, left = node.left, top = node.top, minX = node.minX, minY = node.minY, maxX = node.maxX, maxY = node.maxY, data = node.data, c = node.c;
-    var _self = this;
-    var g = new G_1.default({
-        left: left,
-        top: top,
-        w: w,
-        h: h,
-        c: c
-    });
-    // 创建坐标
-    var rc = new Lines_1.default({
-        pointers: [
-            [0, 0],
-            [0, h],
-            [0 + w, h],
-            [0 + w, 0]
-        ],
-        c: '#ddd',
-        w: .3
-    });
-    // 纵坐标刻度
-    var g_v = new G_1.default();
-    var g_0 = new G_1.default();
-    for (var x = 0; x <= 11; x++) {
-        var _x = -10;
-        var _y = h - x * (h / 11);
-        g_v.add(new Line_1.default({
-            p1: node.coord([0, (maxY - minY) / 11 * x + minY]),
-            p2: node.coord([241, (maxY - minY) / 11 * x + minY]),
-            c: 'rgba(233, 233, 233, .3)',
-            w: .3
-        }));
-        g_v.add(new Text_1.default({
-            text: ((maxY - minY) / 11 * x + minY).toFixed(2),
-            left: _x,
-            top: _y,
-            textAlign: 'right',
-            c: '#ccc'
-        }));
-    }
-    // 横坐标刻度
-    var g_h = new G_1.default();
-    var strs = ['9:30', '10:00', '10:30', '11:00', '11:30/13:00', '13:30', '14:00', "14:30", "15:00"];
-    for (var i = 0; i < strs.length; i++) {
-        var _x = w / (strs.length - 1) * i;
-        var _y = h + 12;
-        g_h.add(new Text_1.default({
-            text: strs[i],
-            left: _x,
-            top: _y,
-            textAlign: 'center',
-            c: '#ccc'
-        }));
-    }
-    g.add(g_v);
-    g.add(g_h);
-    g.add(rc);
-    // 绘制线段组
-    var perW = node.perW;
-    var _data = data.map(function (item, index) { return node.coord([index, item]); });
-    for (var i = 0; i < _data.length; i++) {
-        var _l = new Line_1.default({
-            p1: [_data[i][0], h],
-            p2: _data[i]
-        });
-        g.add(_l);
-    }
-    Painter_1.default.draw(_self, 'G', g);
 });
 
 
